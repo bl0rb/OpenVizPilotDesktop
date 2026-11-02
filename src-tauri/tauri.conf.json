@@ -1,0 +1,74 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OpenVizPilot",
+  "mainBinaryName": "OpenVizPilot",
+  "version": "0.1.0",
+  "identifier": "de.werkworks.openvizpilot.desktop",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "panel",
+        "url": "panel.html",
+        "title": "OpenVizPilot",
+        "width": 520,
+        "height": 740,
+        "minWidth": 400,
+        "minHeight": 480,
+        "center": true,
+        "visible": false
+      },
+      {
+        "label": "quick",
+        "url": "quick.html",
+        "title": "OpenVizPilot",
+        "width": 780,
+        "height": 66,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "copyright": "© 2026 bl0rb · MIT · github.com/bl0rb/OpenVizPilotDesktop",
+    "shortDescription": "Ask your Tableau estate from the menu bar",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZDMEVGNTdDMEFGOUZFQTEKUldTaC92a0tmUFVPYlBRY3k0U3Y3b2p6THNVRG5HeTlzenRob21xdnhUTEFlcWY2L3ZnL2VDaXMK",
+      "endpoints": [
+        "https://github.com/bl0rb/OpenVizPilotDesktop/releases/download/desktop-latest/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
