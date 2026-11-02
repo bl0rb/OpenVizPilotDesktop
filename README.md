@@ -73,7 +73,9 @@ npm run dev
 ```
 
 Tests der Rust-Seite: `cargo test` in `src-tauri/`. Paket bauen: `npm run build`
-(macOS `.app`/`.dmg`, Windows `.msi`; Windows braucht die WebView2-Runtime).
+(macOS `.app`, Windows `.msi`; Windows braucht die WebView2-Runtime). Das macOS-Installer-Paket
+dazu: `scripts/build-pkg.sh` (nimmt die gebaute `.app`, `APP=…` für einen anderen Pfad,
+`INSTALLER_IDENTITY="Developer ID Installer: …"` zum Signieren).
 
 Gegen eine lokale Middleware genügt `http://localhost:3000` als Adresse — `http://` ist nur für
 localhost erlaubt, sonst `https://`.
@@ -81,8 +83,9 @@ localhost erlaubt, sonst `https://`.
 ## Builds und Releases
 
 `.github/workflows/desktop.yml` testet und baut bei jedem Pull Request beide Installer:
-`OpenVizPilot-<version>.dmg` (macOS, universal) und `OpenVizPilot-<version>.msi` (Windows).
-Sie liegen als Artefakte am Lauf.
+`OpenVizPilot-<version>.pkg` (macOS, universal; installiert nach `/Applications` und ersetzt eine
+ältere Version — für Intune „macOS-App (PKG)“ wie für den Doppelklick) und
+`OpenVizPilot-<version>.msi` (Windows). Sie liegen als Artefakte am Lauf.
 
 Ein Tag `vX.Y.Z` veröffentlicht beide als GitHub-Release (`vX.Y.Z-rc.1` als Vorabversion):
 
@@ -95,7 +98,7 @@ git push origin v0.1.0
 ```
 
 Signieren ist optional und schaltet sich mit den Repository-Secrets ein. Ohne sie ist die
-macOS-App nur ad hoc signiert (Gatekeeper warnt beim ersten Start) und das MSI unsigniert
+macOS-App nur ad hoc signiert und das Paket unsigniert (Gatekeeper warnt), das MSI unsigniert
 (SmartScreen warnt) – gut zum Testen, nicht für den Rollout.
 
 | Secret | Inhalt |
@@ -103,7 +106,8 @@ macOS-App nur ad hoc signiert (Gatekeeper warnt beim ersten Start) und das MSI u
 | `APPLE_CERTIFICATE` | „Developer ID Application“-Zertifikat als `.p12`, base64 |
 | `APPLE_CERTIFICATE_PASSWORD` | Passwort der `.p12` |
 | `APPLE_SIGNING_IDENTITY` | z. B. `Developer ID Application: Firma (TEAMID)` |
-| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Notarisierung: Apple-ID, app-spezifisches Passwort, Team-ID |
+| `APPLE_INSTALLER_IDENTITY` | `Developer ID Installer: Firma (TEAMID)` für das `.pkg`; das Zertifikat muss in derselben `.p12` liegen |
+| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Notarisierung von App und Paket: Apple-ID, app-spezifisches Passwort, Team-ID |
 | `WINDOWS_CERTIFICATE` | Code-Signing-Zertifikat als `.pfx`, base64 |
 | `WINDOWS_CERTIFICATE_PASSWORD` | Passwort der `.pfx` |
 | `TAURI_SIGNING_PRIVATE_KEY` | Update-Signaturschlüssel (Inhalt der Datei aus `tauri signer generate`); ohne ihn kein Update-Feed |
