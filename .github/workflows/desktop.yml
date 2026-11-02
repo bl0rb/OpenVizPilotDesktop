@@ -1,7 +1,7 @@
 name: Desktop app
 
-# Tests and builds the tray app: OpenVizPilot-<version>.dmg (macOS, universal)
-# and OpenVizPilot-<version>.msi (Windows). Pull requests build exactly what a
+# Tests and builds the tray app: OpenVizPilot-<version>.pkg (macOS, universal,
+# for Intune "macOS app (PKG)") and OpenVizPilot-<version>.msi (Windows). Pull requests build exactly what a
 # release would, so a broken installer shows up before the tag.
 #
 # Pushing a tag `vX.Y.Z` additionally publishes both installers as a GitHub
@@ -37,13 +37,12 @@ jobs:
       matrix:
         include:
           - os: macos-15
-            bundle: dmg
-            # `app` too: the updater package is the .app, which a dmg-only build discards.
-            bundles: app,dmg
+            # Tauri builds (and signs/notarises) the .app; scripts/build-pkg.sh wraps it into
+            # the installer, and the same .app is the updater package.
+            bundles: app
             target: universal-apple-darwin
             rust_targets: aarch64-apple-darwin x86_64-apple-darwin
           - os: windows-latest
-            bundle: msi
             bundles: msi
             target: x86_64-pc-windows-msvc
             rust_targets: x86_64-pc-windows-msvc
@@ -98,14 +97,47 @@ jobs:
           npx tauri build --ci --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} \
             --config src-tauri/target/version.conf.json
           mkdir -p dist
-          cp src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle }}/*.${{ matrix.bundle }} \
-            "dist/OpenVizPilot-${{ steps.version.outputs.value }}.${{ matrix.bundle }}"
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi \
+              "dist/OpenVizPilot-${{ steps.version.outputs.value }}.msi"
+          fi
 
-      - name: Package app for the updater
+      # The .pkg installs to /Applications (Intune: "macOS app (PKG)"). It is signed with the
+      # "Developer ID Installer" identity when APPLE_INSTALLER_IDENTITY is set (the certificate
+      # must be in the same .p12 as APPLE_CERTIFICATE) and notarised with the APPLE_ID secrets.
+      - name: Build pkg
         if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          INSTALLER_IDENTITY: ${{ secrets.APPLE_INSTALLER_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          tar -czf "dist/OpenVizPilot-${{ steps.version.outputs.value }}-macos.app.tar.gz" \
-            -C src-tauri/target/${{ matrix.target }}/release/bundle/macos OpenVizPilot.app
+          VERSION="${{ steps.version.outputs.value }}"
+          APP="src-tauri/target/${{ matrix.target }}/release/bundle/macos/OpenVizPilot.app"
+          tar -czf "dist/OpenVizPilot-$VERSION-macos.app.tar.gz" -C "$(dirname "$APP")" OpenVizPilot.app
+          if [ -n "$INSTALLER_IDENTITY" ]; then
+            # Tauri's temporary keychain is gone after the build; import the certificate again.
+            KEYCHAIN="$RUNNER_TEMP/pkg.keychain-db"
+            security create-keychain -p "" "$KEYCHAIN"
+            security set-keychain-settings -lut 1800 "$KEYCHAIN"
+            security unlock-keychain -p "" "$KEYCHAIN"
+            echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+            security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/pkgbuild -T /usr/bin/productsign
+            rm -f "$RUNNER_TEMP/cert.p12"
+            security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN" > /dev/null
+            security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          fi
+          APP="$APP" VERSION="$VERSION" scripts/build-pkg.sh
+          PKG="dist/OpenVizPilot-$VERSION.pkg"
+          if [ -n "$INSTALLER_IDENTITY" ] && [ -n "$APPLE_ID" ]; then
+            xcrun notarytool submit "$PKG" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$PKG"
+          elif [ -z "$INSTALLER_IDENTITY" ]; then
+            echo "No APPLE_INSTALLER_IDENTITY secret; the pkg stays unsigned."
+          fi
 
       - name: Sign MSI
         if: runner.os == 'Windows'
