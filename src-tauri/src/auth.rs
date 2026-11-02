@@ -9,7 +9,7 @@
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use rand::RngCore;
+use rand::Rng;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::time::Duration;
@@ -25,7 +25,7 @@ pub struct Pkce {
 
 pub fn pkce() -> Pkce {
     let mut bytes = [0u8; 48];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     let verifier = URL_SAFE_NO_PAD.encode(bytes);
     let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
     Pkce { verifier, challenge }
@@ -34,7 +34,7 @@ pub fn pkce() -> Pkce {
 /// The state the callback page recognises: `desktop-<port>-<random>`.
 pub fn desktop_state(port: u16) -> String {
     let mut bytes = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     format!("desktop-{port}-{}", URL_SAFE_NO_PAD.encode(bytes))
 }
 
