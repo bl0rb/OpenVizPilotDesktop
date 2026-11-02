@@ -2737,7 +2737,7 @@ dependencies = [
 name = "openvizpilot-desktop"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "core-foundation 0.10.1",
  "core-foundation-sys",
  "futures-util",

@@ -8,7 +8,7 @@ license = "MIT"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 futures-util = "0.3"
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
 rand = "0.8"
