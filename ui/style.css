@@ -255,7 +255,14 @@ button.source { min-height: 0; color: var(--accent); }
 
 /* Settings window */
 .badge.managed { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 45%, transparent); }
-.card .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-height: 28px; }
+/* One look for every result next to a button: icon + text, fading in. */
+.result { display: inline-flex; align-items: center; gap: 6px; animation: fade-in .2s ease-out; }
+.result.ok { color: var(--green); }
+.result.error { color: var(--red); }
+.result.busy { color: var(--muted); }
+.result span { overflow-wrap: anywhere; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .update-banner { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; background: var(--accent-soft); border-bottom: 1px solid var(--border); }
 
 /* Quick overlay (hotkey): a floating bar like Spotlight; the window is transparent around it */
