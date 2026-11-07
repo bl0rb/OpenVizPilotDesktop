@@ -212,8 +212,12 @@ fn save_settings(
         current.save(&state.settings_path)?;
     }
     let new = state.effective();
-    if new.server_url != old.server_url {
-        *state.session.lock().unwrap() = load_session(&new.server_url);
+    // Keep a session that already belongs to the saved server (signed in before saving).
+    {
+        let mut session = state.session.lock().unwrap();
+        if session.as_ref().map(|s| s.server.as_str()) != Some(new.server_url.as_str()) {
+            *session = load_session(&new.server_url);
+        }
     }
     if new.hotkey != old.hotkey {
         register_hotkey(&app, &new.hotkey)?;
@@ -349,6 +353,26 @@ async fn get_session(app: AppHandle, state: State<'_, AppState>) -> Result<Value
         }
     }
     Ok(session)
+}
+
+/// "Anmeldung testen": asks the middleware whether it accepts the session.
+/// Only reports -- a rejected token is not dropped here, the user decides.
+#[tauri::command]
+async fn test_sign_in(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let rejected = "Der Server lehnt die Anmeldung ab (abgelaufen oder widerrufen) – bitte neu anmelden.";
+    let middleware = state.middleware().map_err(|_| rejected.to_string())?;
+    let session = middleware.session().await.map_err(|e| if e == UNAUTHORIZED { rejected.to_string() } else { e })?;
+    let name = session
+        .get("user")
+        .and_then(|u| u.get("name").or_else(|| u.get("email")))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    if let Some(current) = state.session.lock().unwrap().as_mut() {
+        if name.is_some() {
+            current.username = name.clone();
+        }
+    }
+    Ok(name)
 }
 
 #[tauri::command]
@@ -889,6 +913,7 @@ fn main() {
             cancel_sign_in,
             sign_out,
             get_session,
+            test_sign_in,
             list_models,
             accept_consent,
             ask,

@@ -34,7 +34,9 @@ const EN = {
   'Middleware-Adresse': 'Middleware address',
   'Öffentliche Adresse der OpenVizPilot-Middleware – dieselbe, die die Extension und die Admin-UI verwenden (ohne /api).': 'Public address of the OpenVizPilot middleware – the one the extension and the admin UI use (without /api).',
   'Verbindung testen': 'Test connection',
-  'Erreichbar': 'Reachable',
+  'Server erreichbar': 'Server reachable',
+  'Anmeldung testen': 'Test sign-in',
+  'Anmeldung gültig': 'Sign-in valid',
   'Von der IT vorgegeben': 'Managed by IT',
   'Konto': 'Account',
   'Angemeldet als %@': 'Signed in as %@',
@@ -72,6 +74,19 @@ const EN = {
   'Jetzt installieren': 'Install now',
   'Update wird installiert – OpenVizPilot startet danach neu …': 'Installing the update – OpenVizPilot restarts afterwards …',
   'Updates verteilt Ihre IT.': 'Your IT distributes updates.',
+  'Tableau-Assistent': 'Tableau assistant',
+  '↵ Senden · ⇧ ↵ Zeilenumbruch': '↵ Send · ⇧ ↵ New line',
+  'läuft …': 'running …',
+  'abgeschlossen': 'completed',
+  'abgebrochen': 'stopped',
+  'Antwort fertig.': 'Answer ready.',
+  'Fehler': 'Error',
+  'Freigabe „Tableau-API“ fehlt': 'Tableau API grant missing',
+  'Persönliche SSO-Anmeldung erforderlich': 'Personal SSO sign-in required',
+  'Sitzung konnte nicht geladen werden': 'Could not load the session',
+  'Keine Modelle verfügbar': 'No models available',
+  'Modelle konnten nicht geladen werden: %@': 'Could not load the models: %@',
+  'Der Server bietet derzeit keine Modelle an.': 'The server currently offers no models.',
 };
 
 /** Translates a German source string and fills its `%@` placeholders in order. */
@@ -111,6 +126,11 @@ const ICONS = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   warning: '<path d="M12 3 2 20h20z"/><path d="M12 9v5M12 17h.01"/>',
   tool: '<path d="M14.7 6.3a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9z"/><path d="M19.7 11.3 21 10l-3-3 1.3-1.3"/>',
+  shield: '<path d="M12 3 4.5 6v5.5c0 4.4 3.2 8.3 7.5 9.5 4.3-1.2 7.5-5.1 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  followup: '<path d="M15 10l5 5-5 5"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/>',
+  dot: '<circle cx="12" cy="12" r="3"/>',
+  pause: '<path d="M9 6v12M15 6v12"/>',
 };
 
 export function icon(name) {
