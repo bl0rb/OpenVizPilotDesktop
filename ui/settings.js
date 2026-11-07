@@ -3,6 +3,7 @@ import { invoke, listen, t, h, icon, spinner, logo } from './common.js';
 
 let state = null;
 let models = null; // { models: [{id,label}], defaultModel } after sign-in
+let modelsError = null; // the catalogue could not be loaded -- shown, not hidden behind an empty choice
 let form = null;
 let check = null; // { checking } | { ok } | { error }
 let accountError = null;
@@ -18,12 +19,14 @@ async function refresh() {
   if (state.server_managed) form.server_url = state.server_url;
   if (state.hotkey_managed) form.hotkey = state.hotkey;
   if (state.signed_in && models === null) {
+    modelsError = null;
     models = await invoke('list_models').catch((error) => {
       if (String(error) === 'unauthorized') accountError = t('Sitzung abgelaufen – bitte neu anmelden.');
+      else modelsError = String(error);
       return { models: [] };
     });
   }
-  if (!state.signed_in) { models = null; signInCheck = null; }
+  if (!state.signed_in) { models = null; modelsError = null; signInCheck = null; }
   render();
 }
 
@@ -85,15 +88,17 @@ function managedBadge(managed) {
   return managed && h('span', { class: 'badge managed' }, t('Von der IT vorgegeben'));
 }
 
+let fieldIds = 0;
+/** Label above its control (connected by id), optional note below. */
 function field(label, control, note) {
-  return [h('div', { class: 'field' }, h('label', null, label), control), note && h('div', { class: 'field-note muted' }, note)];
+  control.id ||= `field-${++fieldIds}`;
+  return [h('div', { class: 'field' }, h('label', { for: control.id }, label), control), note && h('div', { class: 'field-note muted' }, note)];
 }
 
 function render() {
   document.getElementById('toolbar').replaceChildren(
     logo('toolbar-logo'),
-    h('h1', null, 'OpenVizPilot'),
-    h('span', { class: 'spacer' }));
+    h('div', null, h('h1', null, t('Einstellungen')), h('p', { class: 'subtitle' }, 'OpenVizPilot')));
 
   const server = h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('h2', null, t('Server'), managedBadge(state.server_managed))),
@@ -108,12 +113,12 @@ function render() {
   const account = h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('h2', null, t('Konto'))),
     state.signed_in
-      ? h('div', { class: 'actions' },
+      ? h('div', { class: 'account-row' },
         h('span', { class: 'chip ok' }, icon('user'), h('span', null, state.username ? t('Angemeldet als %@', state.username) : t('Angemeldet'))),
         h('span', { class: 'spacer' }),
         h('button', { onclick: testSignIn, disabled: signInCheck?.checking }, t('Anmeldung testen')),
         h('button', { class: 'danger', onclick: () => invoke('sign_out') }, t('Abmelden')))
-      : h('div', { class: 'actions' },
+      : h('div', { class: 'account-row' },
         h('span', { class: 'chip missing' }, icon('warning'), h('span', null, t('Nicht angemeldet'))),
         h('span', { class: 'spacer' }),
         state.login_pending
@@ -124,35 +129,41 @@ function render() {
       result(signInCheck, t('Anmeldung gültig')),
       result(accountError && { error: accountError })));
 
-  const modelOptions = models?.models?.length
+  const offered = models?.models?.length > 0;
+  const modelOptions = offered
     ? [h('option', { value: '' }, t('Vorgabe des Servers')), models.models.map((m) => h('option', { value: m.id, selected: m.id === form.default_model }, m.label ?? m.id))]
-    : h('option', { value: form.default_model }, t('Nach der Anmeldung wählbar'));
+    : h('option', { value: form.default_model }, state.signed_in ? t('Keine Modelle verfügbar') : t('Nach der Anmeldung wählbar'));
+  // Signed in but nothing to choose: say why instead of showing an empty choice as if all was well.
+  const modelNote = state.signed_in && !offered && models !== null && (modelsError || !accountError)
+    && result({ error: modelsError ? t('Modelle konnten nicht geladen werden: %@', modelsError) : t('Der Server bietet derzeit keine Modelle an.') });
   const usage = h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('h2', null, t('Bedienung'), managedBadge(state.hotkey_managed))),
     field(t('Tastenkürzel'),
       h('input', { type: 'text', class: 'mono', value: form.hotkey, disabled: state.hotkey_managed, spellcheck: 'false', oninput: (e) => { form.hotkey = e.target.value; edited(); } }),
       t('Öffnet das Fragefenster von überall, z. B. CmdOrCtrl+Shift+Space. Leer = aus.')),
     field(t('Standard-Modell'),
-      h('select', { disabled: !models?.models?.length, onchange: (e) => { form.default_model = e.target.value; edited(); render(); } }, modelOptions)),
-    h('label', { class: 'switch' },
-      h('input', { type: 'checkbox', checked: state.autostart, onchange: (e) => invoke('set_autostart', { enabled: e.target.checked }) }),
-      t('Beim Anmelden am Computer starten')));
+      h('select', { disabled: !offered, onchange: (e) => { form.default_model = e.target.value; edited(); render(); } }, modelOptions)),
+    modelNote,
+    h('div', { class: 'setting-row' },
+      h('label', { for: 'autostart' }, t('Beim Anmelden am Computer starten')),
+      h('span', { class: 'switch' },
+        h('input', { id: 'autostart', type: 'checkbox', checked: state.autostart, onchange: (e) => invoke('set_autostart', { enabled: e.target.checked }) }))));
 
-  const actions = h('div', { class: 'actions' },
-    h('span', { class: 'spacer' }),
+  // One dominant action: signing in while signed out (it saves the address itself), otherwise saving.
+  const actions = h('div', { class: 'actions save-row' },
     result(saveResult, t('Gespeichert')),
-    h('button', { class: 'primary', onclick: save }, t('Speichern')));
+    h('button', { class: state.signed_in ? 'primary' : '', onclick: save }, t('Speichern')));
 
   let status;
   if (!update.enabled) status = h('span', { class: 'muted' }, t('Updates verteilt Ihre IT.'));
   else if (update.installing) status = h('span', { class: 'result busy' }, spinner(), h('span', null, t('Update wird installiert – OpenVizPilot startet danach neu …')));
   else if (update.checking) status = h('span', { class: 'result busy' }, spinner(), h('span', null, t('Suche nach Updates …')));
   else if (update.available) status = [h('span', { class: 'accent' }, t('Version %@ ist verfügbar.', update.available)),
-    h('button', { class: 'primary', onclick: () => invoke('install_update').catch(() => {}) }, t('Jetzt installieren'))];
+    h('button', { onclick: () => invoke('install_update').catch(() => {}) }, t('Jetzt installieren'))];
   else if (update.checked && !update.error) status = result({ ok: true }, t('OpenVizPilot ist aktuell.'));
   const about = h('section', { class: 'card' },
     h('div', { class: 'card-head' }, h('h2', null, t('Über OpenVizPilot'), managedBadge(!update.enabled))),
-    field(t('Version'), h('span', { class: 'mono selectable' }, state.version)),
+    h('div', { class: 'version-line' }, h('span', { class: 'muted' }, t('Version')), h('span', { class: 'mono selectable' }, state.version)),
     h('div', { class: 'actions' },
       update.enabled && h('button', { disabled: update.checking || update.installing, onclick: () => invoke('check_for_updates') }, t('Nach Updates suchen')),
       status),
