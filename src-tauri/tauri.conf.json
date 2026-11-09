@@ -62,7 +62,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZDMEVGNTdDMEFGOUZFQTEKUldTaC92a0tmUFVPYlBRY3k0U3Y3b2p6THNVRG5HeTlzenRob21xdnhUTEFlcWY2L3ZnL2VDaXMK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJBQjJEN0VGNjVCMUEyMEIKUldRTG9yRmw3OWV5S25YMUF1ZUxZZU15M3doOGREM0pkclJHL0hBRnlGZkFFdGFQOEszVVU0MFgK",
       "endpoints": [
         "https://github.com/bl0rb/OpenVizPilotDesktop/releases/download/desktop-latest/latest.json"
       ],
