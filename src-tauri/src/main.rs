@@ -6,6 +6,8 @@
 
 mod api;
 mod auth;
+#[cfg(target_os = "macos")]
+mod quick_panel;
 mod settings;
 mod update;
 
@@ -661,45 +663,21 @@ fn toggle_quick(app: &AppHandle) {
 /// macOS: show the window on every Space and above full-screen apps, like a
 /// menu-bar popover or Spotlight. Only a non-activating panel can do that:
 /// activating the app would switch to the Space of its own windows instead.
-/// So the overlay's NSWindow becomes an NSPanel subclass that takes key focus
-/// (typing) without activating the app.
+/// `quick_panel` makes the overlay such a panel if tao's window class is as
+/// audited; otherwise it stays an ordinary floating window that activates
+/// the app when shown.
 #[cfg(target_os = "macos")]
 fn float_over_full_screen(window: &WebviewWindow) {
-    use objc2::runtime::{AnyClass, AnyObject, Bool, ClassBuilder, Sel};
-    use objc2::{sel, ClassType};
-    use objc2_app_kit::{NSPanel, NSStatusWindowLevel, NSWindowCollectionBehavior, NSWindowStyleMask};
-    use std::sync::OnceLock;
+    use objc2_app_kit::{NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior};
 
-    extern "C-unwind" fn yes(_: &AnyObject, _: Sel) -> Bool {
-        Bool::YES
-    }
-    extern "C-unwind" fn no(_: &AnyObject, _: Sel) -> Bool {
-        Bool::NO
-    }
-    static PANEL_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
-    let class = PANEL_CLASS.get_or_init(|| {
-        let mut builder = ClassBuilder::new(c"OpenVizPilotQuickPanel", NSPanel::class()).expect("OpenVizPilotQuickPanel registered twice");
-        // Same layout as tao's TaoWindow (NSWindow + `focusable`), so the
-        // class swap keeps the object's size and tao's ivar stays readable.
-        builder.add_ivar::<Bool>(c"focusable");
-        // SAFETY: the signatures match the overridden NSWindow getters.
-        unsafe {
-            builder.add_method(sel!(canBecomeKeyWindow), yes as extern "C-unwind" fn(_, _) -> _);
-            builder.add_method(sel!(canBecomeMainWindow), no as extern "C-unwind" fn(_, _) -> _);
-        }
-        builder.register()
-    });
     let Ok(pointer) = window.ns_window() else { return };
     // SAFETY: called on the main thread (setup); the pointer is the live
-    // NSWindow behind this Tauri window. NSPanel adds no state the window
-    // lacks, and the class carries tao's one ivar at the same offset.
-    let ns_window = unsafe {
-        AnyObject::set_class(&*(pointer as *const AnyObject), class);
-        &*(pointer as *const NSPanel)
-    };
-    ns_window.setStyleMask(ns_window.styleMask() | NSWindowStyleMask::NonactivatingPanel);
-    ns_window.setFloatingPanel(true);
-    ns_window.setHidesOnDeactivate(false);
+    // NSWindow behind this Tauri window.
+    if let Err(reason) = unsafe { quick_panel::make_panel(pointer) } {
+        eprintln!("quick overlay stays an ordinary window: {reason}");
+    }
+    // SAFETY: as above.
+    let ns_window = unsafe { &*(pointer as *const NSWindow) };
     ns_window.setCollectionBehavior(
         NSWindowCollectionBehavior::CanJoinAllSpaces
             | NSWindowCollectionBehavior::FullScreenAuxiliary
@@ -711,11 +689,12 @@ fn float_over_full_screen(window: &WebviewWindow) {
 #[cfg(not(target_os = "macos"))]
 fn float_over_full_screen(_window: &WebviewWindow) {}
 
-/// Shows the overlay with keyboard focus. macOS: without activating the app
-/// (`set_focus` would), so a full-screen app stays where it is.
+/// Shows the overlay with keyboard focus. macOS: as a panel without
+/// activating the app (`set_focus` would), so a full-screen app stays where
+/// it is.
 fn show_without_activating(window: &WebviewWindow) {
     #[cfg(target_os = "macos")]
-    {
+    if quick_panel::is_panel() {
         let target = window.clone();
         let _ = window.run_on_main_thread(move || {
             if let Ok(pointer) = target.ns_window() {
@@ -724,12 +703,10 @@ fn show_without_activating(window: &WebviewWindow) {
                 ns_window.makeKeyAndOrderFront(None);
             }
         });
+        return;
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    let _ = window.show();
+    let _ = window.set_focus();
 }
 
 fn show_settings(app: &AppHandle) -> tauri::Result<()> {
