@@ -786,10 +786,15 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     #[cfg(not(target_os = "macos"))]
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
-    TrayIconBuilder::with_id("openvizpilot")
+    let builder = TrayIconBuilder::with_id("openvizpilot")
         .icon(icon)
-        .icon_as_template(cfg!(target_os = "macos"))
-        .tooltip("OpenVizPilot")
+        .icon_as_template(cfg!(target_os = "macos"));
+    // No tooltip on macOS: tray-icon covers the status-bar button with its own
+    // view that takes the mouse events, so AppKit never sees the pointer leave
+    // the button and the tooltip stays on screen.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.tooltip("OpenVizPilot");
+    builder
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
